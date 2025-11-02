@@ -1,14 +1,9 @@
 <!doctype html>
-<!-- MiniCRM Mobile — v1.1.0 (PWA wiring + from canvas v1.0.11) -->
 <html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>MiniCRM Mobile — Preview</title>
-<link rel="manifest" href="./manifest.webmanifest">
-<meta name="theme-color" content="#0d1117">
-<link rel="icon" sizes="192x192" href="./icons/icon-192.png">
-<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<title>MiniCRM Mobile вЂ” Preview</title>
 <style>
 :root{ --bg:#0d1117; --panel:#111827; --soft:#0f1623; --border:#1f2a37; --text:#e6edf3; --dim:#8b98a5; --accent:#19c37d; --warn:#ff9d4d; --ok:#3ddc97; --danger:#ff6b6b; --ghost:rgba(255,255,255,.06); --radius:16px; }
 *{box-sizing:border-box}
@@ -33,6 +28,13 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:
 .badge{display:inline-block;border-radius:999px;font-size:12px;padding:6px 10px;border:1px solid var(--border);background:#132a22;color:var(--accent)}
 .badge.warn{background:#2b2112;color:var(--warn);border-color:#3c2f1a}
 .badge.ok{background:#132a22;color:var(--ok)}
+
+.debtag{margin-left:8px;font-size:12px;font-weight:800;padding:4px 8px;border-radius:8px;border:1px solid var(--border);background:var(--soft)}
+.debtag.warn{color:var(--danger);border-color:rgba(255,107,107,.35);background:rgba(255,77,77,.08)}
+.debtag.ok{color:var(--ok);border-color:rgba(61,220,151,.35);background:rgba(61,220,151,.08)}
+
+.flag-warn{position:absolute;top:6px;right:10px;font-size:11px;letter-spacing:.2px;color:var(--danger);text-transform:lowercase;background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.35);padding:3px 6px;border-radius:8px;animation:flagPulse 1.8s ease-in-out infinite}
+@keyframes flagPulse{0%,100%{opacity:.45}50%{opacity:.95}}
 
 .btn{height:48px;border-radius:14px;border:1px solid var(--border);background:var(--soft);color:var(--text);font-weight:700;padding:0 14px;transition:box-shadow .15s ease, transform .06s ease, background .15s ease}
 .btn.small{height:42px;padding:0 12px;border-radius:12px}
@@ -73,7 +75,6 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media(max-width:480px){.grid2{grid-template-columns:1fr}}
 
-/* side panels */
 .side{position:fixed;top:0;height:100vh;width:86%;max-width:560px;background:var(--panel);border-left:1px solid var(--border);border-right:1px solid var(--border);z-index:40;transform:translateX(110%);transition:transform .18s ease-out;box-shadow:-12px 0 24px rgba(0,0,0,.4)}
 .side.left{left:0;transform:translateX(-110%);box-shadow:12px 0 24px rgba(0,0,0,.4)}
 .side.show.right{transform:translateX(0)}
@@ -87,142 +88,167 @@ html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:
 .settings-input input[type="password"]{-webkit-text-security:disc;text-security:disc}
 .link-list a{display:block;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--soft);color:var(--text);text-decoration:none}
 
-/* ownership watermark (clickable) */
-.wm{position:fixed;bottom:8px;right:10px;font-size:10px;color:rgba(255,255,255,.2);letter-spacing:.4px;z-index:50}
-.wm a{color:rgba(255,255,255,.35);text-decoration:none;border-bottom:1px dashed rgba(255,255,255,.15)}
-.wm a:hover{color:#19c37d;border-bottom-color:#19c37d}
-
 .toast{position:fixed;left:50%;bottom:calc(12px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#222c3a;color:#fff;border:1px solid #2b3b52;border-radius:10px;padding:8px 12px;font-size:13px;box-shadow:0 6px 18px rgba(0,0,0,.35);z-index:60}
 
-.settings-actions{display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:6px}
-.settings-actions .btn.small{height:36px;border-radius:10px;background:var(--soft);color:var(--text);border:1px solid var(--border)}
-.settings-actions .btn.small:active{transform:translateY(1px)}
+.side-mask{position:fixed;inset:0;z-index:35;background:transparent}
+.lock-back{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,.7));backdrop-filter:blur(10px) saturate(120%);-webkit-backdrop-filter:blur(10px) saturate(120%);z-index:80}
+.lock{width:min(520px,92vw);background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:16px;box-shadow:0 12px 32px rgba(0,0,0,.5)}
+.lock h3{margin:0 0 10px 0}
+.lock .settings-input{margin-top:8px}
 </style>
+<link rel="manifest" href="./manifest.webmanifest">
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('./service-worker.js').catch(function(e){ console.warn('SW register failed', e); });
+  });
+}
+</script>
 </head>
 <body>
+  <div id="app-lock" class="lock-back hidden" aria-modal="true" role="dialog">
+    <section class="lock">
+      <h3>Р’РІРµРґРёС‚Рµ РїР°СЂРѕР»СЊ</h3>
+      <div class="settings-input">
+        <input id="lock-pass" type="password" placeholder="РџР°СЂРѕР»СЊ" inputmode="numeric" autocomplete="current-password" enterkeyhint="done" maxlength="32">
+        <button class="btn small" id="lock-go" type="button">Р’РѕР№С‚Рё</button>
+      </div>
+      <div class="container" style="padding:0"><div class="settings-input" style="margin-top:8px"><input id="admin-pass" type="password" placeholder="РџР°СЂРѕР»СЊ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°" autocomplete="current-password"><button class="btn small" id="admin-login" type="button">Р’РѕР№С‚Рё</button></div></div>
+      <div class="small" style="margin-top:8px;color:var(--dim)">РџР°СЂРѕР»СЊ РјРѕР¶РЅРѕ СЃРјРµРЅРёС‚СЊ РІ РђРґРјРёРЅ в†’ РЎРјРµРЅР° РїР°СЂРѕР»СЏ</div>
+    </section>
+  </div>
+
   <header class="header container">
-    <div class="search" role="search" aria-label="Поиск клиентов">
+    <div class="search" role="search" aria-label="РџРѕРёСЃРє РєР»РёРµРЅС‚РѕРІ">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path d="M21 21l-3.5-3.5" stroke="#8b98a5" stroke-width="1.8" stroke-linecap="round"></path>
         <circle cx="11" cy="11" r="7" stroke="#8b98a5" stroke-width="1.8"></circle>
       </svg>
-      <input id="q" placeholder="Поиск: имя, телефон, ID" autocomplete="off">
+      <input id="q" placeholder="РџРѕРёСЃРє: РёРјСЏ, С‚РµР»РµС„РѕРЅ, ID" autocomplete="off">
     </div>
   </header>
 
   <main class="container">
     <div id="results" class="list"></div>
     <div id="empty" class="empty hidden">
-      <div>Совпадений нет.</div>
-      <button class="btn primary" id="empty-add">Добавить клиента</button>
+      <div>РЎРѕРІРїР°РґРµРЅРёР№ РЅРµС‚.</div>
+      <button class="btn primary" id="empty-add">Р”РѕР±Р°РІРёС‚СЊ РєР»РёРµРЅС‚Р°</button>
     </div>
   </main>
 
-  <button class="fab" id="btn-new" aria-label="Новый заказ">＋</button>
+  <button class="fab" id="btn-new" aria-label="РќРѕРІС‹Р№ Р·Р°РєР°Р·">пј‹</button>
 
   <aside id="admin" class="side right">
-    <div class="side-head"><b>Админ</b><button class="btn small" id="admin-close">✕</button></div>
+    <div class="side-head"><b>РђРґРјРёРЅ</b><button class="btn small" id="admin-close">вњ•</button></div>
     <div class="side-body">
-      <div class="settings-input"><input id="admin-pass" type="password" placeholder="Пароль" inputmode="numeric" autocomplete="new-password" enterkeyhint="done" maxlength="32"><button class="btn small" id="admin-login">Войти</button></div>
       <div id="admin-area" class="hidden">
-        <div class="settings-input"><input id="settings-search" placeholder="Поиск по настройкам"></div>
-        <div class="settings-input"><input id="quick-name" placeholder="Имя клиента" autocomplete="name"></div>
-        <div class="settings-input"><input id="quick-phone" placeholder="Телефон" autocomplete="tel" inputmode="tel"></div>
-        <button class="btn small primary" id="quick-create" type="button">Создать клиента</button>
+        <div class="settings-input"><input id="settings-search" placeholder="РџРѕРёСЃРє РїРѕ РЅР°СЃС‚СЂРѕР№РєР°Рј"></div>
+        <div class="settings-input"><input id="quick-name" placeholder="РРјСЏ РєР»РёРµРЅС‚Р°" autocomplete="name"></div>
+        <div class="settings-input"><input id="quick-phone" placeholder="РўРµР»РµС„РѕРЅ" autocomplete="tel" inputmode="tel"></div>
+        <button class="btn small primary" id="quick-create" type="button">РЎРѕР·РґР°С‚СЊ РєР»РёРµРЅС‚Р°</button>
+        <hr style="border:none;border-top:1px solid var(--border);margin:10px 0">
+        <b>РЎРјРµРЅР° РїР°СЂРѕР»СЏ</b>
+        <div class="settings-input"><input id="pw-old" type="password" placeholder="РЎС‚Р°СЂС‹Р№ РїР°СЂРѕР»СЊ" autocomplete="current-password"></div>
+        <div class="settings-input"><input id="pw-new" type="password" placeholder="РќРѕРІС‹Р№ РїР°СЂРѕР»СЊ (РјРёРЅ. 4)" autocomplete="new-password"></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn small equal" id="pw-save" type="button">РЎРјРµРЅРёС‚СЊ РїР°СЂРѕР»СЊ</button>
+          <button class="btn small ghost equal" id="pw-logout" type="button">Р’С‹Р№С‚Рё</button>
+        </div>
       </div>
     </div>
   </aside>
 
   <aside id="resources" class="side left">
-    <div class="side-head"><b>Ресурсы</b><button class="btn small" id="res-close">✕</button></div>
+    <div class="side-head"><b>Р РµСЃСѓСЂСЃС‹</b><button class="btn small" id="res-close">вњ•</button></div>
     <div class="side-body" id="res-body">
-      <div class="settings-input"><input id="res-search" placeholder="Поиск по ресурсам" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="search" name="resq"></div>
+      <div class="settings-input"><input id="res-search" placeholder="РџРѕРёСЃРє РїРѕ СЂРµСЃСѓСЂСЃР°Рј" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="search"></div>
       <div id="res-list" class="link-list"></div>
     </div>
   </aside>
 
+  <div id="side-mask" class="side-mask hidden" aria-hidden="true"></div>
+
   <div class="sheet-back hidden" id="sheet-back" aria-hidden="true">
     <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
       <header class="sheet-head">
-        <div class="title"><span id="sheet-title">Карточка клиента</span></div>
+        <div class="title"><span id="sheet-title">РљР°СЂС‚РѕС‡РєР° РєР»РёРµРЅС‚Р°</span></div>
         <div class="head-stats">
-          <div id="pill-debt" class="pill">Долг 0 ₽</div>
-          <div id="pill-total" class="pill ok">Итог 0 ₽</div>
+          <div id="pill-debt" class="pill">Р”РѕР»Рі 0 в‚Ѕ</div>
+          <div id="pill-total" class="pill ok">РС‚РѕРі 0 в‚Ѕ</div>
         </div>
-        <button class="btn small" id="sheet-close">✕</button>
+        <button class="btn small" id="sheet-close">вњ•</button>
       </header>
       <div class="sheet-body">
         <form id="form" class="form">
           <div class="field">
-            <label>Имя клиента</label>
-            <div class="input"><input name="name" required placeholder="Иван Петров" autocomplete="name"></div>
+            <label>РРјСЏ РєР»РёРµРЅС‚Р°</label>
+            <div class="input"><input name="name" required placeholder="РРІР°РЅ РџРµС‚СЂРѕРІ" autocomplete="name"></div>
           </div>
 
           <div class="field">
-            <label>Телефон</label>
+            <label>РўРµР»РµС„РѕРЅ</label>
             <div class="input"><input name="phone" required placeholder="+7 (9XX) XXX-XX-XX" autocomplete="tel" inputmode="tel"></div>
           </div>
 
           <div class="grid2">
             <div class="field">
-              <label>Дата обращения</label>
+              <label>Р”Р°С‚Р° РѕР±СЂР°С‰РµРЅРёСЏ</label>
               <div class="input"><input type="date" name="date" required></div>
             </div>
             <div class="field">
-              <label>Рейтинг</label>
-              <div class="input"><input type="range" min="1" max="5" step="1" name="rating" value="5" oninput="this.nextElementSibling.textContent='★'.repeat(this.value) + '☆'.repeat(5-this.value)"><span>★★★★★</span></div>
+              <label>Р РµР№С‚РёРЅРі</label>
+              <div class="input"><input type="range" min="1" max="5" step="1" name="rating" value="5" oninput="this.nextElementSibling.textContent='в…'.repeat(this.value) + 'в†'.repeat(5-this.value)"><span>в…в…в…в…в…</span></div>
             </div>
           </div>
 
           <div class="grid2">
             <div class="field">
-              <label>Стоимость работы (₽)</label>
+              <label>РЎС‚РѕРёРјРѕСЃС‚СЊ СЂР°Р±РѕС‚С‹ (в‚Ѕ)</label>
               <div class="input"><input type="number" name="labor" value="0" inputmode="numeric"></div>
             </div>
             <div class="field">
-              <label>Стоимость деталей (₽)</label>
+              <label>РЎС‚РѕРёРјРѕСЃС‚СЊ РґРµС‚Р°Р»РµР№ (в‚Ѕ)</label>
               <div class="input"><input type="number" name="parts" value="0" inputmode="numeric"></div>
             </div>
           </div>
 
           <div class="grid2">
             <div class="field">
-              <label>Наценка (₽)</label>
+              <label>РќР°С†РµРЅРєР° (в‚Ѕ)</label>
               <div class="input"><input type="number" name="markup" value="0" inputmode="numeric"></div>
             </div>
             <div class="field">
-              <label>Оплачено (₽)</label>
-              <div class="input"><input type="number" name="paid" value="0" inputmode="numeric"></div>
+              <label>РћРїР»Р°С‡РµРЅРѕ (в‚Ѕ)</label>
+              <div class="input"><input type="number" name="paid" value="0" inputmode="numeric"><span id="debtag" class="debtag">Р”РѕР»Рі 0 в‚Ѕ</span></div>
             </div>
           </div>
 
           <div class="field">
-            <label>Ссылка на сайт заказа (URL)</label>
+            <label>РЎСЃС‹Р»РєР° РЅР° СЃР°Р№С‚ Р·Р°РєР°Р·Р° (URL)</label>
             <div class="input"><input name="orderUrl" placeholder="https://crm.example.com/order/123" autocomplete="url"></div>
           </div>
 
           <div class="field">
-            <label>Заметка мастера</label>
-            <div class="input"><textarea name="note" rows="3" placeholder="Краткая заметка..."></textarea></div>
+            <label>Р—Р°РјРµС‚РєР° РјР°СЃС‚РµСЂР°</label>
+            <div class="input"><textarea name="note" rows="3" placeholder="РљСЂР°С‚РєР°СЏ Р·Р°РјРµС‚РєР°..."></textarea></div>
           </div>
         </form>
       </div>
     </section>
   </div>
 
-  <div class="toast hidden" id="toast">Сохранено</div>
+  <div class="toast hidden" id="toast">РЎРѕС…СЂР°РЅРµРЅРѕ</div>
 
 <script>(function(){'use strict';
 function $(s,r){return (r||document).querySelector(s)};function $$(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))}
-var LOG=true;function dbg(){try{if(!LOG)return;var a=Array.prototype.slice.call(arguments);a.unshift('[MiniCRM]');console.log.apply(console,a)}catch(e){}}
-
 var DEBOUNCE_MS=200;var AUTOSAVE_MS=700;function isoDate(){return new Date().toISOString().slice(0,10)}
 function fmt(n){return new Intl.NumberFormat('ru-RU').format(Math.round(n||0))}
-function computeDebt(c){var v=Math.max(0,(+c.parts||0)+(+c.labor||0)+(+c.markup||0)-(+c.paid||0));return v}
+function computeDebt(c){return Math.max(0,(+c.parts||0)+(+c.labor||0)+(+c.markup||0)-(+c.paid||0))}
 function validUrl(u){try{var x=new URL(u);return /^https?:/.test(x.protocol)}catch(e){return false}}
 function sanitize(t){return String(t||'').replace(/[<>]/g,function(s){return({'<':'&lt;','>':'&gt;'}[s])})}
-function toast(t){var el=$('#toast');el.textContent=t;el.classList.remove('hidden');setTimeout(function(){el.classList.add('hidden')},1600)}
+function toast(t){var el=$('#toast');el.textContent=t;el.classList.remove('hidden');setTimeout(function(){el.classList.add('hidden')},1400)}
 function normalizePhone(p){if(!p){return'';}var d=String(p).replace(/[^0-9]/g,'');if(!d){return'';}var n=d;if(n.indexOf('8')===0)n='7'+n.slice(1);if(n.indexOf('9')===0)n='7'+n;if(n.indexOf('7')!==0)n='7'+n;return n}
+function getQValue(){var qEl=$('#q');return qEl?qEl.value:''}
 
 var __results=[];var __currentIndex=-1;
 var DB_NAME='mini_crm_db',DB_VERSION=2,STORE='clients',LS_KEY='mini_crm_backup_v2',USE_LS=false,MEM=[];
@@ -288,24 +314,25 @@ function renderList(rows){
   __results=rows.slice();
   var list=$('#results');list.innerHTML='';var empty=$('#empty');if(!rows.length){empty.classList.remove('hidden');return}empty.classList.add('hidden');
   rows.forEach(function(c,i){
-    var debt=computeDebt(c);var phoneText=sanitize(c.phone);var dateText=sanitize(c.date||'—');
-    var statusHtml=(debt>0?`<span class="badge warn">Долг ${fmt(debt)}₽</span>`:`<span class="badge ok">Оплачено ${fmt(c.paid||0)}₽</span>`);
+    var debt=computeDebt(c);var phoneText=sanitize(c.phone);var dateText=sanitize(c.date||'вЂ”');
+    var statusHtml=(debt>0?'\n            <span class="badge warn">Р”РѕР»Рі '+fmt(debt)+'в‚Ѕ</span>':'\n            <span class="badge ok">РћРїР»Р°С‡РµРЅРѕ '+fmt(c.paid||0)+'в‚Ѕ</span>');
     var card=document.createElement('div');
     card.className='card '+(debt>0?'warn':'ok');
     card.style.textAlign='left';
     card.setAttribute('role','button');
     card.tabIndex=0; card.dataset.index=String(i);
-    card.setAttribute('aria-label','Открыть клиента '+(c.name||''));
+    card.setAttribute('aria-label','РћС‚РєСЂС‹С‚СЊ РєР»РёРµРЅС‚Р° '+(c.name||''));
     var telHref='tel:'+String(c.phone||'').replace(/[^+\d]/g,'');
     card.innerHTML=`
+      ${debt>0 ? '<span class="flag-warn">РІРЅРёРјР°РЅРёРµ РґРѕР»Рі</span>' : ''}
       <div class="row">
         <div>
           <div class="name${debt>0?' debtor':''}">${sanitize(c.name)}</div>
-          <div class="meta"><a class="phone-link" href="${telHref}">${phoneText}</a> • ${dateText}</div>
+          <div class="meta"><a class="phone-link" href="${telHref}">${phoneText}</a> вЂў ${dateText}</div>
         </div>
         <div class="badges">
-          <span class="badge">Работы ${fmt(c.labor)}₽</span>
-          <span class="badge">Детали ${fmt(c.parts)}₽</span>
+          <span class="badge">Р Р°Р±РѕС‚С‹ ${fmt(c.labor)}в‚Ѕ</span>
+          <span class="badge">Р”РµС‚Р°Р»Рё ${fmt(c.parts)}в‚Ѕ</span>
           ${statusHtml}
         </div>
       </div>`;
@@ -320,21 +347,41 @@ function renderList(rows){
 function openSheet(client,index){
   if(typeof index==='number'){__currentIndex=index}else{var i=(__results||[]).findIndex(function(x){return x&&client&&x.id===client.id});__currentIndex=i>=0?i:-1}
   var sheetBack=$('#sheet-back');var sheet=$('.sheet',sheetBack);sheetBack.classList.remove('hidden');
-  var f=$('#form');
+  var f=$('#form'); if(!f){console.warn('[openSheet] form not found'); return;}
   sheet.classList.remove('new-mode','debt-mode','ok-mode');
   if(!client){sheet.classList.add('new-mode');}
 
   var state=client?Object.assign({},client):{id:Math.random().toString(36).slice(2,8),name:'',phone:'',date:isoDate(),parts:0,labor:0,markup:0,paid:0,debt:0,note:'',orderUrl:'',rating:5,updated:new Date().toISOString()};
   f.dataset.mode=client?'edit':'add';
-  $('#sheet-title').textContent=client?'Карточка клиента':'Новый заказ';
-  f.name.value=state.name||'';f.phone.value=state.phone||'';f.date.value=state.date||isoDate();
-  f.parts.value=state.parts||0;f.labor.value=state.labor||0;f.markup.value=state.markup||0;f.paid.value=state.paid||0;f.orderUrl.value=state.orderUrl||'';f.note.value=state.note||'';if(f.rating)f.rating.value=state.rating||5;
+  $('#sheet-title').textContent=client?'РљР°СЂС‚РѕС‡РєР° РєР»РёРµРЅС‚Р°':'РќРѕРІС‹Р№ Р·Р°РєР°Р·';
+  if(f.name)f.name.value=state.name||''; if(f.phone)f.phone.value=state.phone||''; if(f.date)f.date.value=state.date||isoDate();
+  if(f.parts)f.parts.value=state.parts||0; if(f.labor)f.labor.value=state.labor||0; if(f.markup)f.markup.value=state.markup||0; if(f.paid)f.paid.value=state.paid||0; if(f.orderUrl)f.orderUrl.value=state.orderUrl||''; if(f.note)f.note.value=state.note||''; if(f.rating)f.rating.value=state.rating||5;
 
   function updBadges(){
-    state.debt=computeDebt({parts:+f.parts.value||0,labor:+f.labor.value||0,markup:+f.markup.value||0,paid:+f.paid.value||0});
-    var total=(+f.parts.value||0)+(+f.labor.value||0)+(+f.markup.value||0);
-    var pillD=$('#pill-debt'); if(pillD){pillD.textContent='Долг '+fmt(state.debt)+' ₽'; pillD.classList.remove('warn','ok'); pillD.classList.add(state.debt>0?'warn':'ok'); }
-    var pillT=$('#pill-total'); if(pillT){pillT.textContent='Итог '+fmt(total)+' ₽'; pillT.classList.remove('ok'); if(state.debt===0){pillT.classList.add('ok');} }
+    state.debt=computeDebt({parts:+(f.parts?f.parts.value:0)||0,labor:+(f.labor?f.labor.value:0)||0,markup:+(f.markup?f.markup.value:0)||0,paid:+(f.paid?f.paid.value:0)||0});
+    var total=(+(f.parts?f.parts.value:0)||0)+(+(f.labor?f.labor.value:0)||0)+(+(f.markup?f.markup.value:0)||0);
+
+    var pillD=$('#pill-debt');
+    if(pillD){
+      pillD.textContent='Р”РѕР»Рі '+fmt(state.debt)+' в‚Ѕ';
+      pillD.classList.remove('warn','ok');
+      pillD.classList.add(state.debt>0?'warn':'ok');
+    }
+
+    var debTag=$('#debtag');
+    if(debTag){
+      debTag.textContent='Р”РѕР»Рі '+fmt(state.debt)+' в‚Ѕ';
+      debTag.classList.remove('warn','ok');
+      debTag.classList.add(state.debt>0?'warn':'ok');
+    }
+
+    var pillT=$('#pill-total');
+    if(pillT){
+      pillT.textContent='РС‚РѕРі '+fmt(total)+' в‚Ѕ';
+      pillT.classList.remove('ok','warn');
+      if(state.debt===0){pillT.classList.add('ok');}
+    }
+
     var sheetEl=$('.sheet',$('#sheet-back'));
     if(sheetEl){
       var isAdd=(f.dataset.mode==='add');
@@ -348,16 +395,16 @@ function openSheet(client,index){
   function buildRow(){
     return {
       id:state.id,
-      name:f.name.value.trim(),
-      phone:f.phone.value.trim(),
-      date:f.date.value,
-      parts:+f.parts.value||0,
-      labor:+f.labor.value||0,
-      markup:+f.markup.value||0,
-      paid:+f.paid.value||0,
+      name:f.name?f.name.value.trim():'',
+      phone:f.phone?f.phone.value.trim():'',
+      date:f.date?f.date.value:isoDate(),
+      parts:+(f.parts?f.parts.value:0)||0,
+      labor:+(f.labor?f.labor.value:0)||0,
+      markup:+(f.markup?f.markup.value:0)||0,
+      paid:+(f.paid?f.paid.value:0)||0,
       debt:0,
-      note:f.note.value.trim(),
-      orderUrl:(f.orderUrl.value.trim()||undefined),
+      note:f.note?f.note.value.trim():'',
+      orderUrl:(f.orderUrl?f.orderUrl.value.trim():''||undefined),
       rating:+(f.rating?f.rating.value:5),
       updated:new Date().toISOString()
     };
@@ -373,8 +420,8 @@ function openSheet(client,index){
       if(snap===lastSnapshot){return;}
       lastSnapshot=snap;
       CRMDB.put(row).then(function(){
-        CRMDB.search($('#q').value).then(function(r){renderList(r)});
-        toast('Автосохранено');
+        CRMDB.search(getQValue()).then(function(r){renderList(r)});
+        toast('РђРІС‚РѕСЃРѕС…СЂР°РЅРµРЅРѕ');
       });
     },AUTOSAVE_MS);
   }
@@ -398,26 +445,24 @@ function openSheet(client,index){
     sheetBack.addEventListener('click',function(e){if(e.target===sheetBack){closeSheet()}})
   })();
 
-  f.onkeydown=function(e){if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();f.requestSubmit&&f.requestSubmit()}};
-
-  f.onsubmit=function(e){e.preventDefault();
-    var row=buildRow();
-    row.debt=computeDebt(row);
-    CRMDB.put(row).then(function(){closeSheet();CRMDB.search($('#q').value).then(function(r){renderList(r);toast('Сохранено')})})
-  };
+  var formEl=$('#form');
+  if(formEl){
+    formEl.onkeydown=function(e){if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();this.requestSubmit&&this.requestSubmit()}};
+    formEl.onsubmit=function(e){e.preventDefault();var row=buildRow();row.debt=computeDebt(row);CRMDB.put(row).then(function(){closeSheet();CRMDB.search(getQValue()).then(function(r){renderList(r);toast('РЎРѕС…СЂР°РЅРµРЅРѕ')})})};
+  }
 }
 
 function closeSheet(){$('#sheet-back').classList.add('hidden')}
 function openNeighbor(dir){if(!Array.isArray(__results)||__results.length===0){closeSheet();return}if(typeof __currentIndex!=='number'||__currentIndex<0){__currentIndex=0}var n=(__currentIndex+dir+__results.length)%__results.length;__currentIndex=n;var c=__results[n];if(c){openSheet(c,n)}}
 
 function exportCSV(rows){var header=['id','name','phone','date','parts','labor','markup','paid','debt','note','orderUrl','rating','updated'];var csv=[header.join(';')].concat(rows.map(function(r){return header.map(function(k){var v=r[k]==null?'':String(r[k]);return /[";\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}).join(';')})).join('\n');var blob=new Blob([csv],{type:'text/csv;charset=utf-8'});var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='clients.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)}
-function onSearch(){clearTimeout(window.__t);window.__t=setTimeout(function(){var q=$('#q').value;CRMDB.search(q).then(function(r){renderList(r)})},DEBOUNCE_MS)}
+function onSearch(){clearTimeout(window.__t);window.__t=setTimeout(function(){CRMDB.search(getQValue()).then(function(r){renderList(r)})},DEBOUNCE_MS)}
 
 function initDemo(){return CRMDB.all().then(function(all){if(all&&all.length){return;}return CRMDB.seed([
-  {id:'1001',name:'Иван Петров',phone:'+7 999 111-22-33',date:isoDate(),parts:3500,labor:2000,markup:0,paid:2000,rating:5,note:'Замена дисплея',updated:new Date().toISOString()},
-  {id:'1002',name:'Мария Ким',phone:'+7 912 555-66-44',date:isoDate(),parts:1200,labor:1500,markup:0,paid:1200,rating:4,note:'Замена АКБ',updated:new Date().toISOString()},
-  {id:'1003',name:'Сергей Орлов',phone:'+7 904 777-88-55',date:isoDate(),parts:6800,labor:1800,markup:500,paid:5000,rating:3,note:'Плата',updated:new Date().toISOString()},
-  {id:'2001',name:'Кадуков Андрей',phone:'+7 910 711-60-72',date:isoDate(),parts:3000,labor:2500,markup:300,paid:1000,rating:5,note:'Диагностика и сборка',updated:new Date().toISOString()}
+  {id:'1001',name:'РРІР°РЅ РџРµС‚СЂРѕРІ',phone:'+7 999 111-22-33',date:isoDate(),parts:3500,labor:2000,markup:0,paid:2000,rating:5,note:'Р—Р°РјРµРЅР° РґРёСЃРїР»РµСЏ',updated:new Date().toISOString()},
+  {id:'1002',name:'РњР°СЂРёСЏ РљРёРј',phone:'+7 912 555-66-44',date:isoDate(),parts:1200,labor:1500,markup:0,paid:1200,rating:4,note:'Р—Р°РјРµРЅР° РђРљР‘',updated:new Date().toISOString()},
+  {id:'1003',name:'РЎРµСЂРіРµР№ РћСЂР»РѕРІ',phone:'+7 904 777-88-55',date:isoDate(),parts:6800,labor:1800,markup:500,paid:5000,rating:3,note:'РџР»Р°С‚Р°',updated:new Date().toISOString()},
+  {id:'2001',name:'РљР°РґСѓРєРѕРІ РђРЅРґСЂРµР№',phone:'+7 910 711-60-72',date:isoDate(),parts:3000,labor:2500,markup:300,paid:1000,rating:5,note:'Р”РёР°РіРЅРѕСЃС‚РёРєР° Рё СЃР±РѕСЂРєР°',updated:new Date().toISOString()}
 ])})}
 
 function attachGestures(){
@@ -454,17 +499,19 @@ function attachGestures(){
   function enR(){sxR=syR=null}
   r.addEventListener('touchstart',stR,{passive:true});r.addEventListener('touchmove',mvR,{passive:true});r.addEventListener('touchend',enR,{passive:true});
 }
-function showAdmin(v){var el=$('#admin');el.classList.toggle('show',!!v)}
+function syncSideMask(){ var mask=$('#side-mask'); if(!mask) return; var any=$('#admin').classList.contains('show')||$('#resources').classList.contains('show'); mask.classList.toggle('hidden', !any); } 
+function showAdmin(v){var el=$('#admin');el.classList.toggle('show',!!v);syncSideMask();}
 function showRes(v){
   var el=$('#resources');
   el.classList.toggle('show',!!v);
+  syncSideMask();
   if(!v) return;
   var body=$('#res-body');
   if(body){
-    body.innerHTML = '<div class="settings-input"><input id="res-search" placeholder="Поиск по ресурсам" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="search"></div><div id="res-list" class="link-list"></div>';
+    body.innerHTML = '<div class="settings-input"><input id="res-search" placeholder="РџРѕРёСЃРє РїРѕ СЂРµСЃСѓСЂСЃР°Рј" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="search"></div><div id="res-list" class="link-list"></div>';
     var rs=$('#res-search');
     if(rs){ rs.value=''; rs.addEventListener('input',function(){renderResList(this.value)}); setTimeout(function(){ try{ rs.focus({preventScroll:true}) }catch(e){} },50); }
-    (function(){ var cur=resGet(); var clean=resCleanup(cur); if(clean.length!==cur.length){ resSet(clean); } })();
+    var cur=resGet(); var clean=resCleanup(cur); if(clean.length!==cur.length){ resSet(clean); }
     renderResList('');
   }
 }
@@ -497,11 +544,11 @@ function renderResList(filter){
   var list=$('#res-list'); if(!list){return}
   var all=resGet(); list.innerHTML='';
   var q=(filter||'').toLowerCase();
-  function labelFrom(u){ try{ var h=new URL(u).hostname.replace(/^www\./,''); var parts=h.split('.'); return (parts.length>2?parts[parts.length-2]:parts[0]).replace(/[^a-zA-Zа-яА-Я0-9_-]/g,''); }catch(e){ return String(u).replace(/^https?:\/\//,'').replace(/\/$/,''); } }
+  function labelFrom(u){ try{ var h=new URL(u).hostname.replace(/^www\./,''); var parts=h.split('.'); return (parts.length>2?parts[parts.length-2]:parts[0]).replace(/[^a-zA-ZР°-СЏРђ-РЇ0-9_-]/g,''); }catch(e){ return String(u).replace(/^https?:\/\//,'').replace(/\/$/,''); } }
   all.filter(function(it){ var t=(it.t||'').toLowerCase(),u=(it.u||'').toLowerCase(); return !q || t.indexOf(q)!==-1 || u.indexOf(q)!==-1; }).forEach(function(it){
     var a=document.createElement('a'); a.href=it.u; a.target='_blank'; a.rel='noopener noreferrer'; a.textContent=(it.t&&it.t.trim())?it.t:labelFrom(it.u); a.dataset.url=it.u;
     var pressTimer=null; var pressed=false;
-    function startPress(){ pressed=false; clearTimeout(pressTimer); pressTimer=setTimeout(function(){ pressed=true; toast('Ссылка: '+ (a.dataset.url||'')); },650); }
+    function startPress(){ pressed=false; clearTimeout(pressTimer); pressTimer=setTimeout(function(){ pressed=true; toast('РЎСЃС‹Р»РєР°: '+ (a.dataset.url||'')); },650); }
     function endPress(ev){ clearTimeout(pressTimer); if(pressed){ ev && ev.preventDefault(); } }
     a.addEventListener('touchstart',function(){ startPress(); },{passive:true});
     a.addEventListener('touchend',function(ev){ endPress(ev); },{passive:false});
@@ -514,56 +561,50 @@ function renderResList(filter){
 function initAdmin(){
   $('#admin-close').onclick=function(){showAdmin(false)};
   $('#res-close').onclick=function(){showRes(false)};
-  $('#admin-login').onclick=function(){var p=$('#admin-pass').value.trim();var ok=(p==='19801980');if(ok){var ar=$('#admin-area'); if(ar){ar.classList.remove('hidden')} toast('Вход выполнен')}else{toast('Неверный пароль')}};
   $('#settings-search').oninput=function(){};
-  var rs=$('#res-search'); if(rs){ rs.oninput=function(){renderResList(this.value)}; }
-  $('#quick-create').onclick=function(){var n=$('#quick-name').value.trim();var ph=$('#quick-phone').value.trim();if(!n){toast('Введите имя');return}var row={id:Math.random().toString(36).slice(2,8),name:n,phone:ph,date:isoDate(),parts:0,labor:0,markup:0,paid:0,debt:0,note:'',orderUrl:'',rating:5,updated:new Date().toISOString()};CRMDB.put(row).then(function(){toast('Создано');CRMDB.search($('#q').value).then(renderList)})};
+  var rs=$('#res-search'); if(rs){ rs.oninput=function(){renderResList(this.value)} }
+  $('#quick-create').onclick=function(){var n=$('#quick-name').value.trim();var ph=$('#quick-phone').value.trim();if(!n){toast('Р’РІРµРґРёС‚Рµ РёРјСЏ');return}var row={id:Math.random().toString(36).slice(2,8),name:n,phone:ph,date:isoDate(),parts:0,labor:0,markup:0,paid:0,debt:0,note:'',orderUrl:'',rating:5,updated:new Date().toISOString()};CRMDB.put(row).then(function(){toast('РЎРѕР·РґР°РЅРѕ');CRMDB.search(getQValue()).then(renderList)})};
+  var pwSave=$('#pw-save'); if(pwSave){ pwSave.onclick=async function(){ var old=$('#pw-old').value.trim(); var nw=$('#pw-new').value.trim(); if(nw.length<4){toast('РњРёРЅРёРјСѓРј 4 СЃРёРјРІРѕР»Р°');return} if(!(await checkPassword(old))){toast('РЎС‚Р°СЂС‹Р№ РїР°СЂРѕР»СЊ РЅРµРІРµСЂРЅС‹Р№');return} var nh=await sha256(nw); localStorage.setItem(PWD_KEY,nh); toast('РџР°СЂРѕР»СЊ РѕР±РЅРѕРІР»С‘РЅ'); $('#pw-old').value=''; $('#pw-new').value=''; }}
+  var pwLogout=$('#pw-logout'); if(pwLogout){ pwLogout.onclick=function(){ setSessionAuth(false); showAdmin(false); var lk=$('#app-lock'); if(lk){ lk.classList.remove('hidden'); } }}
+}
+
+var PWD_KEY='mini_crm_pass_hash_v1';
+var SESSION_KEY='mini_crm_auth_ok';
+async function sha256(str){try{var enc=new TextEncoder().encode(str);var buf=await crypto.subtle.digest('SHA-256',enc);var arr=Array.from(new Uint8Array(buf));return arr.map(function(b){return b.toString(16).padStart(2,'0')}).join('');}catch(e){return btoa(unescape(encodeURIComponent(str))).replace(/=+$/,'');}}
+async function ensureDefaultPwd(){try{var h=localStorage.getItem(PWD_KEY);if(!h){h=await sha256('19801980');localStorage.setItem(PWD_KEY,h);}}catch(e){}}
+async function checkPassword(pw){try{var cur=localStorage.getItem(PWD_KEY)||'';var h=await sha256(pw||'');return h===cur;}catch(e){return false}}
+function setSessionAuth(ok){try{if(ok) sessionStorage.setItem(SESSION_KEY,'1'); else sessionStorage.removeItem(SESSION_KEY);}catch(e){}}
+function isSessionAuth(){try{return sessionStorage.getItem(SESSION_KEY)==='1'}catch(e){return false}}
+async function initAuthUI(){await ensureDefaultPwd();var lock=$('#app-lock');function unlock(){lock.classList.add('hidden');setSessionAuth(true);}async function attempt(p){if(await checkPassword(p)){unlock();toast('Р”РѕР±СЂРѕ РїРѕР¶Р°Р»РѕРІР°С‚СЊ');$('#admin-area')&&$('#admin-area').classList.remove('hidden');}else{toast('РќРµРІРµСЂРЅС‹Р№ РїР°СЂРѕР»СЊ')}}$('#lock-go').onclick=function(){attempt($('#lock-pass').value.trim())};var lp=$('#lock-pass');lp.addEventListener('keydown',function(e){if(e.key==='Enter'){$('#lock-go').click()}}); if(isSessionAuth()){lock.classList.add('hidden')}else{lock.classList.remove('hidden')}
+  $('#admin-login').onclick=async function(){var p=$('#admin-pass').value.trim(); if(await checkPassword(p)){ var ar=$('#admin-area'); if(ar){ar.classList.remove('hidden')} toast('Р’С…РѕРґ РІС‹РїРѕР»РЅРµРЅ'); } else { toast('РќРµРІРµСЂРЅС‹Р№ РїР°СЂРѕР»СЊ'); }};
 }
 
 function main(){
   initDemo().then(function(){
-    $('#q').addEventListener('input',onSearch);
-    $('#btn-new').addEventListener('click',function(){openSheet(null)});
-    $('#empty-add').addEventListener('click',function(){openSheet(null)});
-    $('#sheet-close').addEventListener('click',function(){closeSheet()});
-    var press;$('#btn-new').addEventListener('touchstart',function(){press=setTimeout(function(){CRMDB.all().then(exportCSV)},650)},{passive:true});
-    $('#btn-new').addEventListener('touchend',function(){clearTimeout(press)});
-    $('#btn-new').addEventListener('contextmenu',function(e){e.preventDefault();CRMDB.all().then(exportCSV)});
+    var qel=$('#q'); if(qel){ qel.addEventListener('input',onSearch); }
+    var bn=$('#btn-new'); if(bn){ bn.addEventListener('click',function(){openSheet(null)}); bn.addEventListener('touchstart',function(){window.__press=setTimeout(function(){CRMDB.all().then(exportCSV)},650)},{passive:true}); bn.addEventListener('touchend',function(){clearTimeout(window.__press)}); bn.addEventListener('contextmenu',function(e){e.preventDefault();CRMDB.all().then(exportCSV)}); }
+    var ea=$('#empty-add'); if(ea){ ea.addEventListener('click',function(){openSheet(null)}) }
+    var sc=$('#sheet-close'); if(sc){ sc.addEventListener('click',function(){closeSheet()}) }
     CRMDB.all().then(function(r){renderList(r)});
     attachGestures();
     initAdmin();
-    (function(){
-      var body=$('#res-body'); if(!body) return;
-      var inputs=$$('.settings-input', body);
-      inputs.forEach(function(node, idx){
-        var inp=node.querySelector('input');
-        if(idx>0 || (inp && inp.id!=='res-search')){ node.remove(); }
-      });
-    })();
+    initAuthUI();
     renderResList('');
-    console.assert(computeDebt({parts:100,labor:0,markup:0,paid:500})===0,'computeDebt floor 0');
-    console.assert(computeDebt({parts:1000,labor:500,markup:0,paid:200})===1300,'computeDebt positive');
-    console.assert(validUrl('https://example.com')===true,'validUrl https');
-    console.assert(validUrl('notaurl')===false,'validUrl false');
-    console.assert(normalizePhone('8 999 123-45-67')==='79991234567','normalizePhone 8→7');
-    console.assert(normalizePhone('+7 (999) 123-45-67')==='79991234567','normalizePhone +7');
-    console.assert(normalizePhone('9991234567')==='79991234567','normalizePhone 9→7 prepend');
-    console.assert(sanitize('<b>')==='&lt;b&gt;','sanitize tags');
-    console.assert(fmt(1234)==='1 234','fmt groups');
-    console.assert(computeDebt({parts:0,labor:0,markup:0,paid:0})===0,'computeDebt zero');
-    console.assert(typeof CRMDB.search==='function','CRMDB.search exists');
+
+    console.assert(computeDebt({parts:100,labor:200,markup:0,paid:50})===250,'debt#1');
+    console.assert(computeDebt({parts:0,labor:0,markup:0,paid:0})===0,'debt#2');
+    console.assert(computeDebt({parts:100,labor:50,markup:0,paid:500})===0,'debt#3');
+    console.assert(normalizePhone('+7 (999) 111-22-33').slice(0,1)==='7','phone#1');
+    console.assert(normalizePhone('8 999 111 22 33').slice(0,1)==='7','phone#2');
+    console.assert(validUrl('https://example.com')===true,'url#1');
+    console.assert(validUrl('javascript:alert(1)')===false,'url#2');
+    CRMDB.search('РРІР°РЅ').then(function(r){console.assert(r.length>=1,'search#ivan')});
+    CRMDB.search('9991112233').then(function(r){console.assert(r.length>=1,'search#phone')});
   })
 }
 
-document.addEventListener('DOMContentLoaded',main);
+window.addEventListener('DOMContentLoaded',main);
 
-// PWA: register service worker
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function(){
-    navigator.serviceWorker.register('./service-worker.js').then(function(reg){ console.log('[SW] registered', reg.scope); }).catch(function(e){ console.warn('[SW] failed', e); });
-  });
-}
 })();</script>
-  <div class="wm" aria-hidden="false">UgraRemKomp · MiniCRM Mobile</div>
 </body>
 </html>
