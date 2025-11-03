@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>MiniCRM v2 — SaaS + Панель управления</title>
+  <meta name="theme-color" content="#0b0f14" />
+  <style>
+    :root{ --bg:#0b0f14; --panel:#101621; --soft:#0e141d; --glass:rgba(255,255,255,.05);
+           --border:#1b2533; --text:#e7eef7; --muted:#9aa7bb; --accent:#19c37d; --warn:#ffb020; --danger:#ff5d5d;
+           --radius:16px; --shadow:0 8px 28px rgba(0,0,0,.4); }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(180deg,var(--bg),#0a0e13 60%,#090d12);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto}
+    .header{position:sticky;top:0;z-index:20;display:flex;gap:6px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,rgba(11,15,20,.95),rgba(11,15,20,.72))}
+    .brand{display:flex;align-items:center;gap:10px}
+    .dot{width:10px;height:10px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#42ffb7,var(--accent));box-shadow:0 0 16px var(--accent)}
+    h1{display:none}
+    .search{display:flex;gap:8px;align-items:center;margin-left:auto}
+    .search input{flex:1;min-width:120px;background:var(--soft);border:1px solid var(--border);border-radius:12px;color:var(--text);padding:6px}
+    .badge, .iconbtn{white-space:nowrap;border:1px dashed var(--border);padding:4px 6px;border-radius:10px;color:var(--muted);cursor:pointer;background:var(--glass)}
+
+    .tabs{display:flex;gap:8px;overflow:auto;padding:8px 12px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,rgba(13,18,26,.9),rgba(13,18,26,.6))}
+    .tab{flex:0 0 auto;padding:8px 12px;border-radius:999px;border:1px solid var(--border);background:var(--glass);color:var(--muted)}
+    .tab.active{color:var(--text);border-color:rgba(25,195,125,.35);background:linear-gradient(180deg,rgba(25,195,125,.14),rgba(25,195,125,.08));box-shadow:0 4px 18px rgba(25,195,125,.16)}
+
+    .page{display:none;min-height:calc(100dvh - 150px);padding:8px}
+    .page.active{display:block;animation:fade .18s}
+    @keyframes fade{from{opacity:.5;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+    .card{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px;margin:8px 0}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .title{font-weight:700}
+    .muted{color:var(--muted)}
+    .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+    .chip{font-size:11px;padding:4px 6px;border-radius:999px;border:1px solid var(--border);background:var(--glass);color:var(--muted)}
+    .chip.ok{color:#b8f7d9;border-color:rgba(25,195,125,.4)}
+    .chip.bad{color:#ffb8b8;border-color:rgba(255,93,93,.4)}
+    .card::after{content:"";position:absolute;inset:2px;border-radius:calc(var(--radius) - 2px);pointer-events:none;opacity:.75}
+/* тонкая красная светящая окантовка для должников */
+.card.debtor{border-color:rgba(255,32,32,.45)}
+.card.debtor::after{box-shadow:0 0 0 0.5px rgba(255,32,32,.7)}
+/* hairline на HiDPI: 1px → 0.5px@2x → 0.333px@3x */
+@media (min-resolution: 2dppx){
+  .card.debtor::after{box-shadow:0 0 0 0.25px rgba(255,32,32,.6)}
+}
+@media (min-resolution: 3dppx){
+  .card.debtor::after{box-shadow:0 0 0 0.167px rgba(255,32,32,.55)}
+}
+/* тонкая зелёная окантовка для карточек "В работе" (кроме должников) */
+.card.work{border-color:rgba(25,195,125,.35)}
+.card.work:not(.debtor)::after{box-shadow:0 0 0 0.5px rgba(25,195,125,.65)}
+@media (min-resolution: 2dppx){ .card.work:not(.debtor)::after{box-shadow:0 0 0 0.25px rgba(25,195,125,.6)} }
+@media (min-resolution: 3dppx){ .card.work:not(.debtor)::after{box-shadow:0 0 0 0.167px rgba(25,195,125,.55)} }
+
+/* затемнение завершённых */
+/* На карточках "В работе" затемнение отключено жёстко */
+.card.work::before{content:none !important}
+.card.done::before{content:"";position:absolute;inset:2px;border-radius:calc(var(--radius) - 2px);background:rgba(0,0,0,.38);pointer-events:none}
+
+    .kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+    .kpi{background:linear-gradient(180deg,rgba(25,195,125,.12),rgba(25,195,125,.04));border:1px solid rgba(25,195,125,.35);border-radius:12px;padding:8px}
+    .kpi h3{margin:0 0 4px 0;font-size:12px;color:var(--muted)}
+    .kpi b{font-size:15px}
+
+    .navbar{position:sticky;bottom:0;z-index:18;border-top:1px solid var(--border);padding:8px;background:linear-gradient(0deg,rgba(9,12,16,.95),rgba(9,12,16,.75))}
+    .navrow{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+    .navbtn{padding:8px;border-radius:12px;border:1px solid var(--border);background:var(--glass);color:var(--muted)}
+    .navbtn.active{color:var(--text);border-color:rgba(25,195,125,.35);box-shadow:0 4px 18px rgba(25,195,125,.15)}
+
+    .toast{position:fixed;left:50%;bottom:72px;transform:translateX(-50%);background:#111;color:#fff;border:1px solid #333;padding:8px 10px;border-radius:10px;opacity:0;transition:.2s;pointer-events:none}
+    .toast.show{opacity:1}
+
+    .grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+    .field{display:grid;gap:4px;margin-top:6px}
+    .field input,.field textarea,.field select,.field button{padding:8px;border-radius:12px;border:1px solid var(--border);background:var(--soft);color:var(--text);width:100%}
+/* выравнивание высот полей */
+.field input,.field select,.field button{height:42px}
+.field textarea{min-height:72px;resize:vertical}
+
+    .subtabs{display:flex;gap:8px;margin:6px 0}
+    .subtabs .sub{padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--glass);color:var(--muted)}
+    .subtabs .sub.active{color:var(--text);border-color:rgba(25,195,125,.35)}
+
+    .blocker{position:fixed;inset:0;background:rgba(11,15,20,.88);display:none;align-items:center;justify-content:center;z-index:50}
+    .modal{max-width:520px;margin:12px;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:14px}
+/* мобильное выравнивание */
+@media (max-width: 420px){
+  .grid2{grid-template-columns:1fr}
+  .modal{margin:8px;padding:12px}
+  .header{padding:6px 8px}
+  .tabs{padding:6px 8px}
+  .navbar{padding:6px}
+}
+    .phone{color:#b8f7d9;text-decoration:none}
+  .editor-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+/* при открытом редакторе убираем нижнюю навигацию, чтобы не перекрывала кнопки */
+body.modal-open .navbar{display:none}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand"><div class="dot"></div></div>
+    <div class="search">
+      <input id="q" placeholder="Поиск: имя/телефон/модель, #ID" autocomplete="off" />
+      <button class="iconbtn" id="add-new" title="Новый клиент">＋ Новый</button>
+      <div class="badge" id="stat" title="Лицензия / Оплата">Лицензия</div>
+    </div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-page="home">Главная</button>
+    <button class="tab" data-page="debts">Просрочка</button>
+    <button class="tab" data-page="work">В работе</button>
+    <button class="tab" data-page="done">Завершённые</button>
+    <button class="tab" data-page="admin">Панель</button>
+  </div>
+
+  <section class="page active" id="page-home">
+    <div class="kpis" id="home-kpis"></div>
+    <div id="home-list"></div>
+  </section>
+  <section class="page" id="page-debts">
+    <div id="debts-summary"></div>
+    <div id="debts-list"></div>
+  </section>
+  <section class="page" id="page-work"><div id="work-list"></div></section>
+  <section class="page" id="page-done"><div id="done-list"></div></section>
+
+  <section class="page" id="page-admin">
+    <div class="card">
+      <div class="title">Панель управления</div>
+      <div class="muted" id="tenant-info">Экземпляр: —</div>
+      <div class="subtabs" id="subtabs">
+        <button class="sub active" data-sub="settings">Настройки</button>
+        <button class="sub" data-sub="builder">Конструктор страниц</button>
+        <button class="sub" data-sub="publish">Публикация</button>
+      </div>
+      <div id="sub-settings">
+        <div class="grid2">
+          <div class="field"><label>Название компании</label><input id="cfg-name" placeholder="ООО УграРемКомп" /></div>
+          <div class="field"><label>Контактный телефон</label><input id="cfg-phone" placeholder="+7 900 000-00-00" /></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label>Пароль администратора</label><input id="cfg-pass" type="password" placeholder="demo" /></div>
+          <div class="field"><label>Срок лицензии (дней, демо)</label><input id="cfg-licdays" type="number" value="30" /></div>
+        </div>
+        <div class="grid2" style="margin-top:8px">
+          <button id="cfg-save">Сохранить</button>
+          <button id="cfg-reset" style="border-color:#333">Сбросить демо-данные</button>
+        </div>
+      </div>
+      <div id="sub-builder" style="display:none">
+        <div class="field"><label>HTML‑шаблон страницы</label>
+          <textarea id="bld-html" rows="8" placeholder="<section>Новая страница</section>"></textarea>
+        </div>
+        <div class="grid2" style="margin-top:8px">
+          <button id="bld-preview">Предпросмотр</button>
+          <button id="bld-download">Скачать как HTML</button>
+        </div>
+        <iframe id="bld-frame" style="width:100%;height:240px;border:1px solid var(--border);border-radius:12px;margin-top:8px"></iframe>
+      </div>
+      <div id="sub-publish" style="display:none">
+        <div class="field"><label>Экспорт данных</label>
+          <div class="grid2">
+            <button id="exp-json">Скачать JSON базы</button>
+            <button id="exp-static">Скачать текущую страницу</button>
+          </div>
+        </div>
+        <div class="card" style="margin-top:10px">
+          <div class="title">Как опубликовать</div>
+          <ol class="muted">
+            <li>Зайдите на GitHub → New repository → включите GitHub Pages.</li>
+            <li>Загрузите скачанный <b>index.html</b> (или собранный файл из конструктора).</li>
+            <li>Откройте ссылку Pages, добавьте параметр <code>?tid=ВАШ_КОД</code> для изоляции арендатора.</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="navbar" id="navbar">
+    <div class="navrow">
+      <button class="navbtn active" data-page="home">Главная</button>
+      <button class="navbtn" data-page="debts">Просрочка</button>
+      <button class="navbtn" data-page="work">В работе</button>
+      <button class="navbtn" data-page="done">Завершённые</button>
+      <button class="navbtn" data-page="admin">Панель</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Готово</div>
+
+  <!-- Лицензионный/парольный гейт -->
+  <div class="blocker" id="gate">
+    <div class="modal">
+      <div class="title">Доступ к экземпляру</div>
+      <div class="muted" id="gate-info">Экземпляр: —</div>
+      <div class="field"><label>Пароль</label><input id="gate-pass" type="password" placeholder="введите пароль"></div>
+      <div class="grid2" style="margin-top:8px">
+        <button id="gate-enter">Войти</button>
+        <button id="gate-trial">Пробный 7 дней</button>
+      </div>
+      <div class="muted" id="gate-msg" style="margin-top:6px">—</div>
+    </div>
+  </div>
+
+  <!-- Редактор клиента (новый/правка) -->
+  <div class="blocker" id="editor-layer" style="display:none">
+    <div class="modal">
+      <div class="title" id="ed-title">Новый клиент</div>
+      <form id="ed-form">
+        <input type="hidden" id="ed-id" />
+        <div class="grid2">
+          <div class="field"><label>Имя клиента</label><input id="ed-name" required placeholder="Иван Иванов" /></div>
+          <div class="field"><label>Телефон</label><input id="ed-phone" placeholder="+7 900 000-00-00" inputmode="tel" /></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label>Модель аппарата</label><input id="ed-device" placeholder="iPhone 11 / Redmi ..." /></div>
+          <div class="field"><label>Срок оплаты</label><input id="ed-due" type="date" /></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label>Работа ₽</label><input id="ed-labor" type="number" value="0" inputmode="numeric" /></div>
+          <div class="field"><label>Детали (себестоимость) ₽</label><input id="ed-parts" type="number" value="0" inputmode="numeric" /></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label>Предоплата ₽</label><input id="ed-paid" type="number" value="0" inputmode="numeric" /></div>
+          <div class="field"><label>Статус</label>
+            <select id="ed-status"><option value="work">В работе</option><option value="done">Завершён</option></select>
+          </div>
+        </div>
+        <div class="field"><label>Заметка мастера</label><textarea id="ed-notes" rows="3" placeholder="Короткая заметка"></textarea></div>
+        <div class="editor-actions" style="margin-top:8px">
+          <button type="button" id="ed-cancel">Отмена</button>
+          <button type="submit" id="ed-save">Сохранить</button>
+        </div>
+        <div class="editor-actions" style="margin-top:8px">
+          <button type="button" id="ed-done">Отметить завершённым</button>
+          <button type="button" id="ed-delete" style="border-color:#8b2b2b;color:#ffb8b8">Удалить</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+<script>
+(function(){
+  // ===== утилиты
+  const $=(s,r=document)=>r.querySelector(s);
+  const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+  const byId=(id)=>document.getElementById(id);
+  const fmt=(n)=> new Intl.NumberFormat('ru-RU').format(Math.round(Number(n||0)));
+  const money=(n)=> fmt(n)+" ₽";
+  const days=(ms)=> Math.ceil(ms/86400000);
+  const TID=((new URLSearchParams(location.search).get('tid'))||'default').toLowerCase().replace(/[^a-z0-9_-]/g,'');
+  const ns=(k)=>`mcrm.v2.${TID}.${k}`;
+  const nowId=()=>"#"+Math.floor(100000+Math.random()*899999);
+
+  // ===== ключи хранилища (изоляция по TID)
+  const KEYS={ data:ns('data'), cfg:ns('cfg'), lic:ns('lic'), users:ns('users'), sess:ns('sess') };
+  const DB={ get(){ try{return JSON.parse(localStorage.getItem(KEYS.data))||[]}catch(e){return[]} }, set(v){ localStorage.setItem(KEYS.data, JSON.stringify(v||[])); } };
+  const CFG={ get(){ try{return JSON.parse(localStorage.getItem(KEYS.cfg))||{} }catch(e){return{}} }, set(v){ localStorage.setItem(KEYS.cfg, JSON.stringify(v||{})); } };
+  const LIC={ get(){ try{return JSON.parse(localStorage.getItem(KEYS.lic))||{trialStart:null,validUntil:null} }catch(e){return{trialStart:null,validUntil:null}} }, set(v){ localStorage.setItem(KEYS.lic, JSON.stringify(v||{})); } };
+  const AUTH={ getUsers(){ try{return JSON.parse(localStorage.getItem(KEYS.users))||[]}catch(e){return[]} }, setUsers(a){ localStorage.setItem(KEYS.users, JSON.stringify(a||[])); }, getSess(){ try{return JSON.parse(sessionStorage.getItem(KEYS.sess))||null}catch(e){return null} }, setSess(v){ sessionStorage.setItem(KEYS.sess, JSON.stringify(v||null)); } };
+
+  // ===== доменные функции
+  function compute(it){ const labor=+it.labor||0, parts=+it.parts||0, paid=+it.paid||0; const total=labor+parts; const debt=Math.max(0,total-paid); const dueAt= it.dueAt?+it.dueAt : (it.createdAt?+it.createdAt+3*86400000: Date.now()); const overdueDays=(debt>0 && Date.now()>dueAt)? days(Date.now()-dueAt):0; return {total,debt,dueAt,overdueDays}; }
+  function matchQuery(it,q){ if(!q) return true; const src=[it.name,it.phone,it.device,it.id].join(' ').toLowerCase().replace(/[\s\-()]/g,''); const qq=String(q).toLowerCase().replace(/[\s\-()]/g,''); return src.includes(qq)||src.startsWith(qq); }
+  function aggregate(list){ let totalDebt=0,totalPaid=0,totalSum=0,inWork=0,done=0,debtors=0; list.forEach(x=>{ const m=compute(x); totalDebt+=m.debt; totalPaid+=+x.paid||0; totalSum+=m.total; inWork+= x.status==='work'?1:0; done+= x.status==='done'?1:0; if(m.debt>0) debtors++; }); return {totalDebt,totalPaid,totalSum,inWork,done,debtors,count:list.length}; }
+
+  // ===== вспомогательные UI
+  function toast(msg){ const t=byId('toast'); if(!t) return; t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1400); }
+  function card(it){ const m=compute(it); const tel=(it.phone||'').replace(/[^\d+]/g,''); const isDone = (it.status==='done' && m.debt===0);
+    const cls = [ (m.debt>0?'debtor':''), (isDone?'done':'work') ].filter(Boolean).join(' ');
+    const statusLabel = isDone ? 'Завершён' : 'В работе'; const overdue = m.debt>0? `• Просрочка: ${m.overdueDays} дн.` : '• Без просрочки'; return `
+    <div class="card ${cls}" data-id="${it.id}">
+      <div class="row"><div class="title">${it.name} <span class="muted">${it.id}</span></div></div>
+      <div class="row muted" style="margin-top:6px"><a class="phone" href="tel:${tel}">📞 ${it.phone||''}</a><span>• ${it.device||''}</span><span>• ${overdue}</span></div>
+      <div class="chips">
+        <span class="chip">Работа: ${money(it.labor||0)}</span>
+        <span class="chip">Детали: ${money(it.parts||0)}</span>
+        <span class="chip"><b>Итого: ${money(m.total)}</b></span>
+        <span class=\"chip ok\">Предоплата: ${money(it.paid||0)}</span>
+        ${m.debt>0? `<span class=\"chip bad\"><b>Долг: ${money(m.debt)}</b></span>` : ``}
+        <span class=\"chip\">${statusLabel}</span>
+      </div>
+    </div>`; }
+
+  // ===== редактор клиента (новый/правка)
+  function edFill(it){ byId('ed-id').value = it && it.id ? it.id : ''; byId('ed-title').textContent = it? 'Правка клиента' : 'Новый клиент';
+    byId('ed-name').value = it && it.name ? it.name : ''; byId('ed-phone').value = it && it.phone ? it.phone : ''; byId('ed-device').value = it && it.device ? it.device : '';
+    byId('ed-labor').value = (it && (it.labor!=null)) ? it.labor : 0; byId('ed-parts').value = (it && (it.parts!=null)) ? it.parts : 0; byId('ed-paid').value = (it && (it.paid!=null)) ? it.paid : 0;
+    byId('ed-status').value = it && it.status ? it.status : 'work'; byId('ed-notes').value = it && it.notes ? it.notes : '';
+    var due = (it && it.dueAt) ? new Date(it.dueAt) : new Date(Date.now()+3*86400000);
+    var d = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+    byId('ed-due').valueAsDate = d; byId('editor-layer').style.display='flex'; document.body.classList.add('modal-open'); }
+  function edClose(){ byId('editor-layer').style.display='none'; document.body.classList.remove('modal-open'); }
+  function edGetPayload(){ var id = byId('ed-id').value || nowId(); var found = DB.get().find(function(x){return x.id===id}); var createdAt = found && found.createdAt ? found.createdAt : Date.now();
+    var dd = byId('ed-due').valueAsDate; var dueAt = dd ? new Date(dd.getFullYear(), dd.getMonth(), dd.getDate()).getTime() : Date.now()+3*86400000;
+    return { id:id, name: byId('ed-name').value.trim(), phone: byId('ed-phone').value.trim(), device: byId('ed-device').value.trim(),
+      labor: +byId('ed-labor').value||0, parts: +byId('ed-parts').value||0, paid: +byId('ed-paid').value||0,
+      status: byId('ed-status').value||'work', notes: byId('ed-notes').value.trim(), createdAt: createdAt, dueAt: dueAt } }
+  function edSave(){ var a=DB.get(); var p=edGetPayload(); var m=compute(p); if(p.status==='done' && m.debt>0){ p.status='work'; toast('Завершение запрещено при долге — статус оставлен «В работе»'); } var i=a.findIndex(function(x){return x.id===p.id}); if(i>-1){ a[i]=Object.assign({},a[i],p); } else { a.unshift(p); } DB.set(a); toast('Сохранено'); edClose(); renderAll(); }
+  function edDelete(){ var id=byId('ed-id').value; if(!id) return; DB.set(DB.get().filter(function(x){return x.id!==id})); toast('Удалено'); edClose(); renderAll(); }
+  function edDone(){ var id=byId('ed-id').value; var a=DB.get(); var i=a.findIndex(function(x){return x.id===id}); if(i>-1){ var m=compute(a[i]); if(m.debt>0){ toast('Нельзя завершить: есть долг'); return; } a[i].status='done'; DB.set(a); toast('Отмечено завершённым'); edClose(); renderAll(); } }
+
+  // ===== рендеры
+  function renderKpis(list){ const a=aggregate(list); const box=byId('home-kpis'); if(!box) return; box.innerHTML = `
+    <div class="kpi"><h3>Всего клиентов</h3><b>${a.count}</b><div class="muted">В работе: ${a.inWork} • Завершено: ${a.done}</div></div>
+    <div class="kpi"><h3>Финансы</h3><b>${money(a.totalPaid)} / ${money(a.totalSum)}</b><div class="muted">Общий долг: <b style="color:var(--warn)">${money(a.totalDebt)}</b></div></div>`; }
+
+  function renderAll(){ const all=DB.get(); const q=byId('q')?.value?.trim()||''; const filtered=all.filter(x=>matchQuery(x,q)); renderKpis(filtered);
+    const stat=byId('stat'); if(stat){ const ls=licState(); stat.textContent = ls.status==='ok'?'Лицензия':(ls.status==='trial'?'Пробный':'Купить доступ'); }
+    const sorted=[...filtered].sort((x,y)=>{ const mx=compute(x), my=compute(y); const dx=mx.debt>0, dy=my.debt>0; if(dx!==dy) return (dy?1:0)-(dx?1:0); if(dx&&dy && (my.overdueDays||0)!==(mx.overdueDays||0)) return (my.overdueDays||0)-(mx.overdueDays||0); if(x.status!==y.status) return x.status==='work'?-1:1; return (y.createdAt||0)-(x.createdAt||0); });
+    const home=byId('home-list'); if(home) home.innerHTML = sorted.map(card).join('') || `<div class=\"card\"><div class=\"muted\">Нет данных</div></div>`;
+    // дебиторка: только с долгом
+    const onlyDebt=filtered.filter(x=>{ const m=compute(x); return m.debt>0; });
+    const dsum=byId('debts-summary'); if(dsum){ const sum=onlyDebt.reduce((s,x)=>s+compute(x).debt,0); dsum.innerHTML=`<div class=\"card\"><div class=\"title\">Просрочка — сводка</div><div class=\"chips\"><span class=\"chip bad\">Всего долг: ${money(sum)}</span><span class=\"chip\">Количество: ${onlyDebt.length}</span></div></div>`; }
+    const dlist=byId('debts-list'); if(dlist) dlist.innerHTML = onlyDebt.map(card).join('') || `<div class=\"card\"><div class=\"muted\">Нет должников 🎉</div></div>`;
+    const w=byId('work-list'); if(w) w.innerHTML = filtered.filter(x=>x.status==='work').map(card).join('') || `<div class=\"card\"><div class=\"muted\">Нет активных работ</div></div>`;
+    const dn=byId('done-list'); if(dn) dn.innerHTML = filtered.filter(x=>x.status==='done' && compute(x).debt===0).map(card).join('') || `<div class=\"card\"><div class=\"muted\">Пока нет завершённых</div></div>`;
+  }
+
+  // ===== лицензия/гейт/аренда
+  function licState(){ const l=LIC.get(); const now=Date.now(); if(l.validUntil && l.validUntil>now) return {status:'ok', left:days(l.validUntil-now)}; if(l.trialStart && (l.trialStart+7*86400000)>now) return {status:'trial', left:days(l.trialStart+7*86400000-now)}; return {status:'blocked', left:0}; }
+  function ensureTrial(){ const l=LIC.get(); if(!l.trialStart && !l.validUntil){ l.trialStart=Date.now(); LIC.set(l); } }
+  async function sha256(s){ const enc=new TextEncoder().encode(s); const buf=await crypto.subtle.digest('SHA-256',enc); return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''); }
+  function gateShow(msg){ byId('gate').style.display='flex'; byId('gate-msg').textContent=msg||'—'; byId('gate-pass').value=''; byId('gate-info').textContent=`Экземпляр: ${TID}`; }
+  async function gateCheck(){ const pass=byId('gate-pass').value.trim(); if(!pass){ byId('gate-msg').textContent='Введите пароль'; return; } const users=AUTH.getUsers(); let ok=false; if(!users.length){ const hash=await sha256('demo'); AUTH.setUsers([{id:'u1',name:'admin',role:'admin',pinHash:hash}]); ok=(await sha256(pass))===hash; } else { ok=(await sha256(pass))===users[0].pinHash; }
+    if(ok){ AUTH.setSess({ok:true,tid:TID}); byId('gate').style.display='none'; toast('Вход выполнен'); renderAll(); } else { byId('gate-msg').textContent='Неверный пароль'; }
+  }
+  function ensureAccess(){ const ls=licState(); const sess=AUTH.getSess(); if(ls.status==='blocked'){ gateShow('Лицензия не активна. Нажмите «Пробный 7 дней» или купите доступ.'); return false; } if(!sess||!sess.ok){ gateShow('Введите пароль для входа в экземпляр'); return false; } return true; }
+
+  // ===== простая реализация redeem (демо +30 дней)
+  async function redeemAndApply(plan='P1M'){
+    const l = LIC.get();
+    l.validUntil = Date.now() + 30*86400000; // демо-продление
+    LIC.set(l);
+    toast('Лицензия: +30 дней (демо)');
+    renderAll();
+  }
+
+  // ===== панель: сабвкладки и действия
+  function showSub(which){ ['settings','builder','publish'].forEach(id=>{ byId('sub-'+id).style.display = (id===which?'block':'none'); }); $$('#subtabs .sub').forEach(b=>b.classList.toggle('active', b.dataset.sub===which)); }
+
+  function download(name, content, type='text/html'){
+    const blob = new Blob([content], {type});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 500);
+  }
+
+  // ===== демо-данные при первом запуске
+  function seed(){ if(DB.get().length) return; const now=Date.now(); DB.set([
+    {id:'#100123',name:'Иван Петров',phone:'+7 900 111-22-33',device:'iPhone 11',labor:3500,parts:4500,paid:2000,status:'work',createdAt:now-3*86400000},
+    {id:'#100124',name:'Мария Сидорова',phone:'+7 999 222-33-44',device:'Redmi Note 10',labor:2500,parts:1800,paid:4300,status:'done',createdAt:now-86400000},
+    {id:'#100125',name:'Андрей К.',phone:'+7 988 777-55-44',device:'Realme C61',labor:3000,parts:0,paid:0,status:'work',createdAt:now-8*86400000,dueAt:now-2*86400000}
+  ]); }
+
+  // ===== инициализация / обработчики
+  function navHandler(e){ const b=e.target.closest('[data-page]'); if(!b) return; const p=b.getAttribute('data-page'); $$('.tab').forEach(x=>x.classList.toggle('active',x.dataset.page===p)); $$('.navbtn').forEach(x=>x.classList.toggle('active',x.dataset.page===p)); $$('.page').forEach(x=>x.classList.toggle('active',x.id===`page-${p}`)); renderAll(); }
+
+  function init(){ ensureTrial(); seed(); byId('tenant-info').textContent='Экземпляр: '+TID;
+    byId('tabs').addEventListener('click',navHandler); byId('navbar').addEventListener('click',navHandler);
+    byId('q').addEventListener('input',renderAll);
+    // сабвкладки панели
+    byId('subtabs').addEventListener('click',function(e){ var b=e.target.closest('[data-sub]'); if(!b) return; showSub(b.dataset.sub); });
+    // настройки
+    byId('cfg-save').addEventListener('click',function(){ Promise.resolve().then(async function(){ var cfg={name:byId('cfg-name').value,phone:byId('cfg-phone').value,licDays:+byId('cfg-licdays').value||30}; CFG.set(cfg); var users=AUTH.getUsers(); if(byId('cfg-pass').value){ var hash=await sha256(byId('cfg-pass').value); AUTH.setUsers([{id:'u1',name:'admin',role:'admin',pinHash:hash}]); }
+      var l=LIC.get(); l.validUntil=Date.now()+(cfg.licDays*86400000); LIC.set(l); toast('Настройки сохранены, лицензия продлена'); renderAll(); }); });
+    byId('cfg-reset').addEventListener('click',function(){ localStorage.removeItem(KEYS.data); seed(); toast('Демо-данные восстановлены'); renderAll(); });
+    // конструктор
+    byId('bld-preview').addEventListener('click',function(){ var html=byId('bld-html').value||'<section style="padding:10px">Пустая страница</section>'; var doc='<!doctype html><meta charset="utf-8"><title>Preview</title>'+html; var f=byId('bld-frame'); var blob=new Blob([doc],{type:'text/html'}); f.src=URL.createObjectURL(blob); setTimeout(function(){URL.revokeObjectURL(f.src)},1000); });
+    byId('bld-download').addEventListener('click',function(){ var html=byId('bld-html').value||'<section style="padding:10px">Пустая страница</section>'; var doc='<!doctype html><html><head><meta charset="utf-8"><title>Landing</title></head><body>'+html+'</body></html>'; download('landing.html',doc); });
+    // экспорт
+    byId('exp-json').addEventListener('click',function(){ download('mcrm-'+TID+'-data.json', JSON.stringify(DB.get(),null,2),'application/json'); });
+    byId('exp-static').addEventListener('click',function(){ download('index.html', document.documentElement.outerHTML); });
+    // лицензия/оплата (исправлено — безопасный обработчик)
+    byId('stat').addEventListener('click', () => redeemAndApply('P1M'));
+    // гейт
+    byId('gate-enter').addEventListener('click',gateCheck);
+    byId('gate-trial').addEventListener('click',function(){ var l=LIC.get(); l.trialStart=l.trialStart||Date.now(); LIC.set(l); byId('gate').style.display='none'; toast('Пробный активирован'); renderAll(); });
+    // редактор
+    byId('add-new').addEventListener('click',function(){ edFill(null); });
+    byId('ed-cancel').addEventListener('click',edClose);
+    byId('ed-form').addEventListener('submit',function(e){ e.preventDefault(); edSave(); });
+    byId('ed-delete').addEventListener('click',edDelete);
+    byId('ed-done').addEventListener('click',edDone);
+    // открытие карточки по клику
+    document.body.addEventListener('click',function(e){ var card=e.target.closest('.card[data-id]'); if(!card) return; var id=card.getAttribute('data-id'); var it=DB.get().find(function(x){return x.id===id}); if(it) edFill(it); });
+    if(!ensureAccess()) return; renderAll(); }
+
+  // самотесты (не менять существующие тесты)
+  (function tests(){ const t=(it)=>{ const l=+it.labor||0, p=+it.parts||0, paid=+it.paid||0; const total=l+p; const debt=Math.max(0,total-paid); return {total,debt}; };
+    console.assert(t({labor:2000,parts:1000,paid:500}).total===3000,'total=3000');
+    console.assert(t({labor:2000,parts:1000,paid:500}).debt===2500,'debt=2500');
+    // Доп. тесты
+    const id = nowId(); console.assert(/^#\d{6}$/.test(id),'id format');
+    const m = compute({labor:1000,parts:1000,paid:500,createdAt:Date.now()-5*86400000,dueAt:Date.now()-2*86400000});
+    console.assert(m.debt===1500,'debt calc'); console.assert(m.overdueDays>=2,'overdue >= 2');
+    console.assert(matchQuery({name:'Иван',phone:'+7 900',device:'iPhone',id:'#1'}, 'ив'), 'match name');
+    // Новые тесты (не ломают старые)
+    console.assert(matchQuery({name:'',phone:'+7 900 111-22-33',device:'',id:'#77'}, '900111'), 'match digits');
+    console.assert(compute({labor:1000,parts:500,paid:2000}).debt===0, 'no negative debt');
+  })();
+
+  document.readyState==='loading'?document.addEventListener('DOMContentLoaded',init):init();
+})();
+</script>
+</body>
+</html>
