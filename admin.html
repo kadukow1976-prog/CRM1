@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>MiniCRM — Admin Console</title>
+  <meta name="theme-color" content="#0b0f14" />
+  <style>
+    :root{ --bg:#0b0f14; --panel:#101621; --soft:#0e141d; --glass:rgba(255,255,255,.05);
+           --border:#1b2533; --text:#e7eef7; --muted:#9aa7bb; --accent:#19c37d;
+           --radius:16px; --shadow:0 8px 28px rgba(0,0,0,.4); }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{height:100%}
+    body{margin:0;background:linear-gradient(180deg,var(--bg),#0a0e13 60%,#090d12);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto}
+    .wrap{max-width:980px;margin:0 auto;padding:10px}
+    .card{background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px;margin:10px 0}
+    .grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .field{display:grid;gap:6px}
+    input,button,select{height:42px;padding:8px;border-radius:12px;border:1px solid var(--border);background:var(--soft);color:var(--text)}
+    textarea{min-height:88px;border-radius:12px;border:1px solid var(--border);background:var(--soft);color:var(--text);padding:8px}
+    h1{font-size:18px;margin:0 0 8px 0}
+    .muted{color:var(--muted)}
+    .table{border:1px solid var(--border);border-radius:12px;overflow:auto}
+    .row{display:grid;grid-template-columns:160px 140px 120px 100px 90px 80px 80px;gap:8px;padding:8px;border-bottom:1px solid var(--border)}
+    .row.head{background:rgba(255,255,255,.04);font-weight:700;position:sticky;top:0}
+    .row .c{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .ok{border-color:rgba(25,195,125,.45)}
+    @media (max-width: 860px){ .row{grid-template-columns:160px 120px 100px 80px 80px} .hide-md{display:none} }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>MiniCRM — Admin Console</h1>
+      <div class="grid2">
+        <div class="field"><label>API_BASE (GAS /exec)</label>
+          <input id="api" placeholder="https://script.google.com/macros/s/XXXX/exec" />
+        </div>
+        <div class="field"><label>ADMIN_API_KEY</label>
+          <input id="akey" placeholder="вставьте ключ из GAS Config.gs" />
+        </div>
+      </div>
+      <div class="grid3" style="margin-top:8px">
+        <div class="field"><label>Цена лицензии, ₽ (для ссылки)</label><input id="price" value="2500" type="number" /></div>
+        <div class="field"><label>Получатель ЮMoney</label><input id="recv" value="4100117049015785" /></div>
+        <div class="field"><label>TID (экземпляр)</label><input id="tid" placeholder="ugra-001" /></div>
+      </div>
+      <div class="actions" style="margin-top:8px">
+        <button id="load">Загрузить список</button>
+        <button id="saveCfg">Сохранить настройки</button>
+      </div>
+      <div class="muted" id="msg">—</div>
+    </div>
+
+    <div class="card">
+      <div class="actions">
+        <button id="act30">Активировать +30 дней</button>
+        <button id="act90">+90 дней</button>
+        <button id="actTo">Активировать до даты…</button>
+        <input id="date" type="date"/>
+        <button id="pending">Сделать pending</button>
+      </div>
+      <div class="table" style="margin-top:8px">
+        <div class="row head">
+          <div class="c">login</div>
+          <div class="c">tid</div>
+          <div class="c">до</div>
+          <div class="c">дней</div>
+          <div class="c hide-md">устр.</div>
+          <div class="c hide-md">лимит</div>
+          <div class="c">роль</div>
+        </div>
+        <div id="users"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h1>Ссылка на оплату (ЮMoney)</h1>
+      <div class="grid2">
+        <div class="field"><label>DeviceId</label><input id="dev" placeholder="вставьте device клиента" /></div>
+        <div class="field"><label>Результат</label><input id="pay" readonly /></div>
+      </div>
+      <div class="actions" style="margin-top:8px">
+        <button id="makePay">Сформировать</button>
+        <button id="openPay">Открыть</button>
+        <button id="copyPay">Копировать</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const $=s=>document.querySelector(s); const $$=s=>Array.from(document.querySelectorAll(s));
+  const byId=id=>document.getElementById(id);
+  const SKEY='mcrm.admin.cfg';
+  const cfg = JSON.parse(localStorage.getItem(SKEY)||'{}');
+  function saveCfg(){ localStorage.setItem(SKEY, JSON.stringify({ api:byId('api').value.trim(), akey:byId('akey').value.trim(), price:+byId('price').value||2500, recv:byId('recv').value.trim(), tid:byId('tid').value.trim() })); msg('Настройки сохранены'); }
+  function loadCfg(){ if(cfg.api) byId('api').value=cfg.api; if(cfg.akey) byId('akey').value=cfg.akey; if(cfg.price) byId('price').value=cfg.price; if(cfg.recv) byId('recv').value=cfg.recv; if(cfg.tid) byId('tid').value=cfg.tid; }
+  function msg(t){ byId('msg').textContent=t; }
+  function api(){ return (byId('api').value||'').trim(); }
+  function akey(){ return (byId('akey').value||'').trim(); }
+
+  async function load(){ try{
+    const r=await fetch(api()+'/admin/listUsers',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ key: akey() }) });
+    const data=await r.json(); if(!data.ok){ msg('Нет доступа'); return; }
+    const box=byId('users');
+    box.innerHTML = (data.users||[]).map(u=>`<label class="row"><input type="radio" name="sel" value="${u.login}" style="accent-color:#19c37d"> <div class="c">${u.login}</div><div class="c">${u.tid}</div><div class="c">${u.activeUntil||'-'}</div><div class="c">${u.daysLeft}</div><div class="c hide-md">${u.devicesCount}</div><div class="c hide-md">${u.maxDevices}</div><div class="c">${u.role}</div></label>`).join('');
+    msg('Загружено: '+(data.users||[]).length);
+  }catch(e){ msg('Ошибка сети'); }
+  }
+
+  function selLogin(){ const r=$('input[name="sel"]:checked'); return r? r.value: null; }
+
+  function payLink(){ const recv=byId('recv').value.trim(); const price=+byId('price').value||2500; const tid=byId('tid').value.trim(); const dev=byId('dev').value.trim(); const label=encodeURIComponent(tid+':'+dev); return `https://yoomoney.ru/transfer?receiver=${encodeURIComponent(recv)}&amount=${encodeURIComponent(price)}&label=${label}`; }
+
+  async function activatePlus(days){ const login=selLogin(); if(!login){ msg('Выберите пользователя'); return; }
+    // получим детали пользователей и найдём активную дату
+    const r=await fetch(api()+'/admin/listUsers',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ key: akey() }) });
+    const data=await r.json();
+    const u=(data.users||[]).find(x=>x.login===login); if(!u){ msg('Пользователь не найден'); return; }
+    // вызываем старый activate по tid/device (требует deviceId — берём первый из devices через отдельный лист или вручную)
+    const dev=prompt('DeviceId для активации (вставьте из таблицы/клиента):'); if(!dev){ msg('Отменено'); return; }
+    // дата базовая — либо текущая activeUntil, либо сегодня
+    const base = u.activeUntil ? new Date(u.activeUntil) : new Date(); base.setHours(12,0,0,0);
+    const until = new Date(base.getTime()+days*86400000); const y=until.getFullYear(), m=String(until.getMonth()+1).padStart(2,'0'), d=String(until.getDate()).padStart(2,'0');
+    const r2=await fetch(api()+'/activate',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tid: u.tid, device: dev, activeUntil: `${y}-${m}-${d}` }) });
+    const j=await r2.json(); if(j.ok){ msg('Активировано до '+`${y}-${m}-${d}`); await load(); } else { msg('Ошибка активации'); }
+  }
+
+  async function activateTo(){ const login=selLogin(); if(!login){ msg('Выберите пользователя'); return; } const until=byId('date').value; if(!until){ msg('Выберите дату'); return; }
+    const r=await fetch(api()+'/admin/listUsers',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ key: akey() }) }); const data=await r.json(); const u=(data.users||[]).find(x=>x.login===login); if(!u){ msg('Пользователь не найден'); return; }
+    const dev=prompt('DeviceId для активации (вставьте из таблицы/клиента):'); if(!dev){ msg('Отменено'); return; }
+    const r2=await fetch(api()+'/activate',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tid: u.tid, device: dev, activeUntil: until }) }); const j=await r2.json(); if(j.ok){ msg('Активировано до '+until); await load(); } else { msg('Ошибка активации'); }
+  }
+
+  function makePay(){ byId('pay').value=payLink(); }
+  function openPay(){ const url=payLink(); if(url) window.open(url,'_blank'); }
+  function copyPay(){ const i=byId('pay'); i.select(); document.execCommand('copy'); }
+
+  byId('load').addEventListener('click', load);
+  byId('saveCfg').addEventListener('click', saveCfg);
+  byId('act30').addEventListener('click', ()=>activatePlus(30));
+  byId('act90').addEventListener('click', ()=>activatePlus(90));
+  byId('actTo').addEventListener('click', activateTo);
+  byId('makePay').addEventListener('click', makePay);
+  byId('openPay').addEventListener('click', openPay);
+  byId('copyPay').addEventListener('click', copyPay);
+
+  loadCfg();
+  if(byId('api').value && byId('akey').value){ load(); }
+})();
+</script>
+</body>
+</html>
